@@ -1,0 +1,323 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rakwa · Kitchen Display</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='82' font-size='84'>🔥</text></svg>">
+<link rel="stylesheet" href="/theme.css">
+<style>
+  body { display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+  .topbar { flex-shrink: 0; }
+  .screen-tag.kds { color: var(--flame); border-color: color-mix(in srgb, var(--flame) 45%, transparent); }
+  .clock.big { font-size: 22px; font-weight: 600; color: var(--text); }
+  .counts { display: flex; gap: 8px; }
+  .count { display: flex; align-items: center; gap: 7px; padding: 6px 13px; border-radius: 999px; border: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+  .count b { font-family: var(--font-mono); color: var(--text); font-size: 15px; }
+  .count i { width: 8px; height: 8px; border-radius: 50%; }
+  .i-new { background: var(--blue); } .i-prep { background: var(--amber); } .i-ready { background: var(--mint); }
+  .ai-btn { border-color: color-mix(in srgb, var(--copper) 55%, transparent); color: var(--copper); font-weight: 600; }
+  .ai-btn .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--copper); animation: pulse 2s infinite; }
+
+  main { flex: 1; display: grid; grid-template-columns: 1fr 320px; min-height: 0; }
+  .board { padding: 18px; overflow-y: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(262px, 1fr)); gap: 16px; align-content: start; }
+
+  /* ── Thermal receipt ticket (signature element) ── */
+  .ticket {
+    background: var(--paper); color: var(--paper-ink); border-radius: 3px;
+    box-shadow: 0 2px 4px rgba(0,0,0,.35), 0 14px 34px rgba(0,0,0,.3);
+    display: flex; flex-direction: column; position: relative; overflow: hidden;
+    animation: slideIn .4s cubic-bezier(.2,.9,.3,1.2);
+    -webkit-mask: linear-gradient(#000 0 0) top/100% calc(100% - 8px) no-repeat,
+      radial-gradient(circle at 7px -2px, transparent 6px, #000 6.5px) bottom/14px 8px repeat-x;
+    mask: linear-gradient(#000 0 0) top/100% calc(100% - 8px) no-repeat,
+      radial-gradient(circle at 7px -2px, transparent 6px, #000 6.5px) bottom/14px 8px repeat-x;
+  }
+  @keyframes slideIn { from { transform: translateY(-16px) scale(.97); opacity: 0; } }
+  .ticket.bumping { transition: all .38s ease; transform: scale(.9) translateY(-8px); opacity: 0; }
+  .ticket > .strip { height: 5px; flex-shrink: 0; }
+  .age-fresh > .strip { background: var(--mint); }
+  .age-warn  > .strip { background: var(--amber); }
+  .age-late  > .strip { background: var(--flame); }
+  .age-late { box-shadow: 0 0 0 2px var(--flame), 0 14px 34px rgba(0,0,0,.4); }
+
+  .t-head { display: flex; align-items: baseline; padding: 10px 14px 8px; border-bottom: 1px dashed var(--paper-line); gap: 8px; }
+  .t-num { font-family: var(--font-mono); font-weight: 700; font-size: 21px; }
+  .t-type { font-size: 11px; color: var(--paper-dim); text-transform: uppercase; letter-spacing: .06em; }
+  .t-status { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; padding: 3px 8px; border-radius: 4px; font-weight: 700; margin-left: 2px; }
+  .s-new { background: #dbe8f2; color: #2c5e7e; }
+  .s-preparing { background: #f4e4c1; color: #7d5a12; }
+  .s-ready { background: #d6ecdd; color: #22633e; }
+  .t-timer { margin-left: auto; font-family: var(--font-mono); font-weight: 700; font-size: 18px; }
+  .age-warn .t-timer { color: #a06f10; }
+  .age-late .t-timer { color: var(--flame-deep); animation: blink 1.2s infinite; }
+  @keyframes blink { 50% { opacity: .4; } }
+
+  .t-meta { padding: 6px 14px; font-size: 11px; color: var(--paper-dim); font-family: var(--font-mono); display: flex; justify-content: space-between; align-items: center; gap: 6px; }
+  .t-meta .void { color: var(--paper-dim); border: 1px solid var(--paper-line); border-radius: 5px; padding: 1px 7px; font-size: 10px; letter-spacing: .05em; }
+  .t-meta .void:hover { color: var(--flame-deep); border-color: var(--flame); }
+
+  .t-items { padding: 4px 8px 8px; flex: 1; }
+  .t-item { padding: 7px 6px; border-radius: 7px; border-bottom: 1px dotted var(--paper-line); font-size: 14px; cursor: pointer; transition: background .12s; }
+  .t-item:last-child { border-bottom: 0; }
+  .t-item:hover { background: rgba(0,0,0,.035); }
+  .t-item.done { opacity: .5; }
+  .t-item.done .nm, .t-item.done .q { text-decoration: line-through; }
+  .t-item .top { display: flex; gap: 8px; align-items: baseline; }
+  .t-item .q { font-family: var(--font-mono); font-weight: 700; min-width: 24px; }
+  .t-item .nm { flex: 1; }
+  .t-item .sz { color: var(--paper-dim); font-size: 12px; font-weight: 400; }
+  .t-item .st { font-size: 9px; letter-spacing: .08em; text-transform: uppercase; color: #fff; padding: 2px 6px; border-radius: 4px; align-self: center; }
+  .st-espresso { background: #b06a2c; } .st-grill { background: #b6432e; } .st-cold { background: #3f7f56; }
+  .t-mods { margin: 4px 0 0 32px; font-size: 12.5px; line-height: 1.5; }
+  .t-mods .mod { color: #8a5f16; font-weight: 600; }
+  .t-mods .note { display: inline-block; background: #f6ddd7; color: #a3341f; font-weight: 600; padding: 1px 7px; border-radius: 4px; margin-top: 3px; }
+  .t-check { float: right; color: var(--mint); font-weight: 700; }
+
+  .t-act { margin: 2px 10px 14px; padding: 12px; border-radius: 9px; font-weight: 700; font-size: 13.5px; letter-spacing: .05em; text-transform: uppercase; transition: transform .1s, filter .12s; color: #fff; }
+  .t-act:hover { filter: brightness(1.07); }
+  .t-act:active { transform: scale(.97); }
+  .a-new { background: #2b6183; } .a-preparing { background: #8a5f16; } .a-ready { background: #2a7a4d; }
+
+  .empty-board { grid-column: 1 / -1; text-align: center; color: var(--faint); padding: 96px 20px; font-size: 15px; line-height: 1.9; }
+  .empty-board .mk { display: block; font-size: 40px; color: var(--line); letter-spacing: .3em; margin-bottom: 12px; }
+
+  /* ── Right rail ── */
+  aside { border-left: 1px solid var(--line-soft); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
+  aside h3 { font-size: 11px; letter-spacing: .15em; text-transform: uppercase; color: var(--faint); font-weight: 700; padding: 16px 18px 9px; display: flex; justify-content: space-between; }
+  .allday { padding: 0 18px 8px; overflow-y: auto; max-height: 30%; }
+  .ad-line { display: flex; gap: 10px; padding: 6px 0; border-bottom: 1px dashed var(--line-soft); font-size: 13.5px; color: var(--muted); }
+  .ad-line b { font-family: var(--font-mono); color: var(--copper); min-width: 30px; font-size: 14.5px; }
+  .ad-empty { color: var(--faint); font-size: 13px; padding: 6px 0; }
+  .stations { padding: 0 18px 14px; display: flex; gap: 8px; }
+  .stn { flex: 1; border: 1px solid var(--line-soft); border-radius: var(--r-md); padding: 10px 4px; text-align: center; background: var(--surface-2); }
+  .stn small { display: block; font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--faint); margin-bottom: 3px; }
+  .stn b { font-family: var(--font-mono); font-size: 18px; }
+  .stn.hot { border-color: var(--flame); } .stn.hot b { color: var(--flame); }
+
+  .ai-panel { flex: 1; display: flex; flex-direction: column; min-height: 0; border-top: 1px solid var(--line-soft); }
+  .ai-out { flex: 1; overflow-y: auto; padding: 2px 18px 18px; font-size: 13px; }
+  .ai-empty { color: var(--faint); line-height: 1.75; padding-top: 4px; }
+  .ai-head { font-size: 14.5px; font-weight: 700; color: var(--copper); margin: 6px 0 12px; line-height: 1.4; font-family: var(--font-display); }
+  .alert { border: 1px solid var(--line-soft); border-left: 3px solid var(--amber); border-radius: 8px; padding: 9px 12px; margin-bottom: 9px; background: var(--surface-2); }
+  .alert.late { border-left-color: var(--flame); } .alert.ok { border-left-color: var(--mint); }
+  .alert .who { font-family: var(--font-mono); font-size: 11px; color: var(--faint); margin-bottom: 3px; text-transform: uppercase; letter-spacing: .07em; }
+  .alert .issue { color: var(--text); line-height: 1.45; }
+  .alert .action { color: var(--copper); margin-top: 4px; line-height: 1.45; }
+  .ai-note { color: var(--muted); line-height: 1.55; padding: 9px 0; border-top: 1px dashed var(--line-soft); }
+  .ai-note b { color: var(--text); font-weight: 600; }
+  .ai-ts { font-family: var(--font-mono); font-size: 10.5px; color: var(--faint); margin-top: 10px; }
+  .spin { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--copper); border-top-color: transparent; border-radius: 50%; animation: spin .8s linear infinite; vertical-align: -2px; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  @media (max-width: 980px) { main { grid-template-columns: 1fr; } aside { display: none; } }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">Rak<em>wa</em></span>
+      <span class="screen-tag kds">KDS · Kitchen Line</span>
+    </div>
+    <span class="clock big" id="clock">--:--:--</span>
+    <div class="spacer"></div>
+    <div class="counts">
+      <span class="count"><i class="i-new"></i> New <b id="cNew">0</b></span>
+      <span class="count"><i class="i-prep"></i> Preparing <b id="cPrep">0</b></span>
+      <span class="count"><i class="i-ready"></i> Ready <b id="cReady">0</b></span>
+    </div>
+    <span class="live-dot off" id="liveDot">Link</span>
+    <button class="btn ghost ai-btn" id="aiBtn"><span class="pulse"></span> Ops check</button>
+    <button class="icon-btn" id="themeToggle" aria-label="Toggle theme">☀</button>
+  </header>
+
+  <main>
+    <section class="board" id="board"></section>
+    <aside>
+      <h3><span>All day · المعلّق</span></h3>
+      <div class="allday" id="allday"></div>
+      <h3>Station load · حمل المحطات</h3>
+      <div class="stations" id="stations"></div>
+      <div class="ai-panel">
+        <h3>⚡ Ops copilot · مساعد التشغيل</h3>
+        <div class="ai-out" id="aiOut">
+          <div class="ai-empty">Watches the live board against SLA (drinks 5 min, food 9 min) and calls out slow tickets, station overload, and the next staffing move.<br><br>Run an <b style="color:var(--copper)">Ops check</b> for a read.</div>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+<script type="module">
+import { initTheme, initClock, connectStream, api, esc } from '/shared.js';
+initTheme('dark'); initClock();
+
+const $ = (s) => document.querySelector(s);
+let orders = [];
+const S_LABEL = { new: 'New', preparing: 'Preparing', ready: 'Ready' };
+const NEXT = { new: ['Start prep · بدء', 'a-new'], preparing: ['Mark ready · جاهز', 'a-preparing'], ready: ['Bump · تسليم', 'a-ready'] };
+
+// SLA: drinks-only 5 min, anything with food 9 min.
+const ageMin = (o) => (Date.now() - o.created_at) / 60000;
+function ageClass(o) {
+  const sla = o.items.every((i) => i.station !== 'grill') ? 5 : 9;
+  const a = ageMin(o);
+  return a > sla ? 'age-late' : a > sla * 0.6 ? 'age-warn' : 'age-fresh';
+}
+const fmtAge = (o) => {
+  const s = Math.max(0, Math.floor((Date.now() - o.created_at) / 1000));
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+const live = () => orders.filter((o) => ['new', 'preparing', 'ready'].includes(o.status)).sort((a, b) => a.created_at - b.created_at);
+
+// soft chime for new tickets — WebAudio, no asset files
+let actx;
+function chime() {
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const t = actx.currentTime;
+    for (const [f, d] of [[784, 0], [1046.5, 0.11]]) {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'sine'; o.frequency.value = f; o.connect(g); g.connect(actx.destination);
+      g.gain.setValueAtTime(0.0001, t + d);
+      g.gain.exponentialRampToValueAtTime(0.11, t + d + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + d + 0.5);
+      o.start(t + d); o.stop(t + d + 0.55);
+    }
+  } catch {}
+}
+
+function ticketHTML(o) {
+  const time = new Date(o.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+  return `<article class="ticket ${ageClass(o)}" data-id="${o.id}" data-num="${o.number}">
+    <div class="strip"></div>
+    <div class="t-head">
+      <span class="t-num">#${o.number}</span>
+      <span class="t-type">${o.type}</span>
+      <span class="t-status s-${o.status}">${S_LABEL[o.status]}</span>
+      <span class="t-timer" data-timer>${fmtAge(o)}</span>
+    </div>
+    <div class="t-meta"><span>${time} · ${esc(o.tag || '')} · ${esc(o.cashier)}</span><button class="void" data-void title="Cancel ticket">void</button></div>
+    <div class="t-items">${o.items.map((i) => `
+      <div class="t-item ${i.done ? 'done' : ''}" data-line="${i.id}">
+        <div class="top">
+          <span class="q">${i.qty}×</span>
+          <span class="nm">${esc(i.name)} ${i.size ? `<span class="sz">${esc(i.size)}</span>` : ''}${i.done ? '<span class="t-check">✓</span>' : ''}</span>
+          <span class="st st-${i.station}">${i.station}</span>
+        </div>
+        ${i.mods.length || i.note ? `<div class="t-mods">${i.mods.map((m) => `<span class="mod">▸ ${esc(m)}</span>`).join(' ')}${i.note ? ` <span class="note">✎ ${esc(i.note)}</span>` : ''}</div>` : ''}
+      </div>`).join('')}</div>
+    <button class="t-act ${NEXT[o.status][1]}" data-adv>${NEXT[o.status][0]}</button>
+  </article>`;
+}
+
+function render() {
+  const L = live();
+  const B = $('#board');
+  B.innerHTML = L.length ? L.map(ticketHTML).join('')
+    : `<div class="empty-board"><span class="mk">— — —</span>All caught up — the board is clear.<br>كل الطلبات جاهزة، لا يوجد معلّق</div>`;
+
+  $('#cNew').textContent = L.filter((o) => o.status === 'new').length;
+  $('#cPrep').textContent = L.filter((o) => o.status === 'preparing').length;
+  $('#cReady').textContent = L.filter((o) => o.status === 'ready').length;
+
+  // all-day aggregate — pending (not-yet-done) items across active tickets
+  const agg = {};
+  for (const o of L) if (o.status !== 'ready') for (const i of o.items) if (!i.done) agg[i.name] = (agg[i.name] || 0) + i.qty;
+  const rows = Object.entries(agg).sort((a, b) => b[1] - a[1]);
+  $('#allday').innerHTML = rows.length
+    ? rows.map(([n, q]) => `<div class="ad-line"><b>${q}×</b><span>${esc(n)}</span></div>`).join('')
+    : '<div class="ad-empty">Nothing pending</div>';
+
+  // station load
+  const load = { espresso: 0, grill: 0, cold: 0 };
+  for (const o of L) if (o.status !== 'ready') for (const i of o.items) if (!i.done) load[i.station] += i.qty;
+  $('#stations').innerHTML = Object.entries(load).map(([s, q]) =>
+    `<div class="stn ${q >= 5 ? 'hot' : ''}"><small>${s}</small><b>${q}</b></div>`).join('');
+}
+
+// tick timers + age colors every second without a full re-render
+setInterval(() => {
+  for (const el of document.querySelectorAll('.ticket')) {
+    const o = orders.find((x) => x.id === el.dataset.id);
+    if (!o) continue;
+    const tm = el.querySelector('[data-timer]'); if (tm) tm.textContent = fmtAge(o);
+    el.classList.remove('age-fresh', 'age-warn', 'age-late');
+    el.classList.add(ageClass(o));
+  }
+}, 1000);
+
+// interactions: strike a line, advance status, or void
+$('#board').onclick = async (e) => {
+  const card = e.target.closest('.ticket'); if (!card) return;
+  const o = orders.find((x) => x.id === card.dataset.id); if (!o) return;
+
+  const adv = e.target.closest('[data-adv]');
+  if (adv) {
+    if (o.status === 'ready') card.classList.add('bumping'); // fade before SSE confirms
+    await api.post(`/api/orders/${o.id}/status`);
+    return;
+  }
+  if (e.target.closest('[data-void]')) {
+    card.classList.add('bumping');
+    await api.post(`/api/orders/${o.id}/void`, { reason: 'Voided at KDS' });
+    return;
+  }
+  const lineEl = e.target.closest('[data-line]');
+  if (lineEl) {
+    lineEl.classList.toggle('done'); // optimistic; SSE reconciles
+    await api.post(`/api/orders/${o.id}/item/${lineEl.dataset.line}/toggle`);
+  }
+};
+
+function upsert(o) {
+  const i = orders.findIndex((x) => x.id === o.id);
+  if (i >= 0) orders[i] = o; else orders.push(o);
+}
+
+connectStream({
+  'order:new': (o) => { upsert(o); render(); chime(); },
+  'order:update': (o) => { upsert(o); render(); },
+  'order:bump': (d) => { orders = orders.filter((x) => x.id !== d.id); setTimeout(render, 380); },
+  'order:void': (d) => { orders = orders.filter((x) => x.id !== d.id); setTimeout(render, 380); },
+  'ai:ops': (d) => paintAI(d),
+}, (ok) => {
+  const dot = $('#liveDot');
+  dot.classList.toggle('off', !ok);
+  dot.textContent = ok ? 'Live' : 'Reconnecting…';
+});
+
+// ── AI ops copilot ──
+$('#aiBtn').onclick = async () => {
+  $('#aiOut').innerHTML = `<div class="ai-empty"><span class="spin"></span>&nbsp; Reading the board… (${live().length} live tickets)</div>`;
+  try {
+    const d = await api.post('/api/ai/expedite');
+    paintAI(d);
+  } catch (err) {
+    $('#aiOut').innerHTML = `<div class="ai-empty" style="color:var(--flame)">${esc(err.message)}</div>`;
+  }
+};
+function paintAI(d) {
+  if (d.error) { $('#aiOut').innerHTML = `<div class="ai-empty" style="color:var(--flame)">${esc(d.error)}</div>`; return; }
+  const alerts = (d.alerts || []).map((a) => `
+    <div class="alert ${a.severity || 'watch'}">
+      <div class="who">${a.ticket ? '#' + a.ticket : 'Floor'} · ${esc(a.severity || '')}</div>
+      <div class="issue">${esc(a.issue || '')}</div>
+      ${a.action ? `<div class="action">→ ${esc(a.action)}</div>` : ''}
+    </div>`).join('');
+  const stations = (d.stations || []).filter((s) => s.advice).map((s) =>
+    `<div class="ai-note"><b>${esc(s.station)} — ${esc(s.load || '')}:</b> ${esc(s.advice)}</div>`).join('');
+  $('#aiOut').innerHTML = `
+    <div class="ai-head">${esc(d.headline || 'Ops read')}</div>
+    ${alerts}
+    ${stations}
+    ${d.pace ? `<div class="ai-note"><b>Pace:</b> ${esc(d.pace)}</div>` : ''}
+    ${d.staffing ? `<div class="ai-note"><b>Staffing:</b> ${esc(d.staffing)}</div>` : ''}
+    <div class="ai-ts">${esc(d.model || '')} · ${new Date(d.at || Date.now()).toLocaleTimeString('en-GB')}</div>`;
+}
+
+// boot
+const boot = await api.get('/api/orders');
+orders = boot.orders; render();
+</script>
+</body>
+</html>

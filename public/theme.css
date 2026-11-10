@@ -1,0 +1,190 @@
+/* Rakwa design tokens — roasted-black + copper/crema. Dark is the house default. */
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,560;0,9..144,700;1,9..144,500&family=Albert+Sans:wght@400;500;600;700&family=Spline+Sans+Mono:wght@400;500;600&display=swap');
+
+:root {
+  --bg: #151009;
+  --surface: #1f1811;
+  --surface-2: #2a2118;
+  --line: #3a2f22;
+  --line-soft: #2e251a;
+  --text: #f0e7d5;
+  --muted: #a8977e;
+  --faint: #776a56;
+  --copper: #d98e4a;
+  --copper-hi: #eda863;
+  --copper-ink: #2a1c0e;
+  --mint: #8fc49a;
+  --amber: #e8bb55;
+  --flame: #e8654a;
+  --flame-deep: #b6432e;
+  --blue: #7db4d8;
+  --chit: #241c13;
+  --chit-hole: var(--bg);
+  /* KDS thermal receipt — stays cream on the dark board, like a real print */
+  --paper: #f7f1e4;
+  --paper-ink: #241f18;
+  --paper-dim: #7a7261;
+  --paper-line: #ddd2bd;
+  --shadow: 0 12px 32px rgba(0, 0, 0, .45);
+  --r-sm: 8px;
+  --r-md: 14px;
+  --r-lg: 20px;
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-ui: 'Albert Sans', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: 'Spline Sans Mono', 'Cascadia Mono', Consolas, monospace;
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --bg: #f4ecdd;
+  --surface: #fdf9f1;
+  --surface-2: #f1e8d7;
+  --line: #ddcfb6;
+  --line-soft: #e8dcc8;
+  --text: #2b2115;
+  --muted: #7c6b53;
+  --faint: #a4937a;
+  --copper: #c1732f;
+  --copper-hi: #a55f22;
+  --copper-ink: #fff6e8;
+  --mint: #47855a;
+  --amber: #a97c14;
+  --flame: #c74f35;
+  --flame-deep: #a63a24;
+  --blue: #3f7fa6;
+  --chit: #fffdf6;
+  --chit-hole: var(--bg);
+  --paper: #fffdf6;
+  --paper-ink: #2b2115;
+  --paper-dim: #8a7c64;
+  --paper-line: #e5dcc8;
+  --shadow: 0 10px 28px rgba(88, 64, 30, .16);
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: 15px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+button { font: inherit; color: inherit; background: none; border: none; cursor: pointer; }
+input, select { font: inherit; color: inherit; }
+::selection { background: var(--copper); color: var(--copper-ink); }
+
+/* App header shared by POS + KDS */
+.topbar {
+  display: flex; align-items: center; gap: 16px;
+  padding: 10px 20px;
+  border-bottom: 1px solid var(--line-soft);
+  background: color-mix(in srgb, var(--surface) 72%, transparent);
+  backdrop-filter: blur(8px);
+  position: sticky; top: 0; z-index: 40;
+}
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand .logo {
+  font-family: var(--font-display); font-weight: 700; font-size: 26px;
+  letter-spacing: .01em; color: var(--text);
+}
+.brand .logo em { font-style: italic; color: var(--copper); }
+.brand .ar {
+  font-size: 15px; color: var(--muted); font-weight: 500;
+}
+.brand .screen-tag {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .14em;
+  text-transform: uppercase; color: var(--copper);
+  border: 1px solid color-mix(in srgb, var(--copper) 45%, transparent);
+  padding: 3px 8px; border-radius: 999px; margin-left: 4px;
+}
+.topbar .spacer { flex: 1; }
+.clock { font-family: var(--font-mono); font-size: 15px; color: var(--muted); letter-spacing: .04em; }
+
+.live-dot { display: inline-flex; align-items: center; gap: 7px; font-size: 12px; color: var(--muted); font-weight: 600; letter-spacing: .06em; text-transform: uppercase; }
+.live-dot::before {
+  content: ''; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--mint); box-shadow: 0 0 0 0 color-mix(in srgb, var(--mint) 60%, transparent);
+  animation: pulse 2.2s ease-out infinite;
+}
+.live-dot.off::before { background: var(--faint); animation: none; }
+@keyframes pulse {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--mint) 55%, transparent); }
+  70% { box-shadow: 0 0 0 9px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+
+/* Buttons */
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  padding: 10px 18px; border-radius: var(--r-md);
+  background: var(--surface-2); border: 1px solid var(--line);
+  font-weight: 600; transition: transform .08s ease, background .15s ease, border-color .15s ease;
+}
+.btn:hover { border-color: var(--copper); }
+.btn:active { transform: scale(.97); }
+.btn.primary {
+  background: var(--copper); color: var(--copper-ink); border-color: transparent;
+  box-shadow: 0 4px 18px color-mix(in srgb, var(--copper) 35%, transparent);
+}
+.btn.primary:hover { background: var(--copper-hi); }
+.btn.ghost { background: transparent; border-color: var(--line); color: var(--muted); }
+.btn.ghost:hover { color: var(--text); }
+.btn:disabled { opacity: .45; cursor: not-allowed; }
+.btn:focus-visible, .chip:focus-visible, .icon-btn:focus-visible {
+  outline: 2px solid var(--copper); outline-offset: 2px;
+}
+
+.icon-btn {
+  width: 38px; height: 38px; border-radius: var(--r-md);
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); background: var(--surface-2); font-size: 16px;
+  transition: border-color .15s ease;
+}
+.icon-btn:hover { border-color: var(--copper); }
+
+/* Chips (modifiers, quick notes) */
+.chip {
+  padding: 8px 14px; border-radius: 999px;
+  border: 1px solid var(--line); background: var(--surface-2);
+  font-size: 13.5px; font-weight: 500; color: var(--muted);
+  transition: all .12s ease;
+}
+.chip:hover { border-color: var(--copper); color: var(--text); }
+.chip.on {
+  background: var(--copper); border-color: transparent; color: var(--copper-ink); font-weight: 600;
+}
+
+/* Thermal chit — the signature element. Perforated top, mono body. */
+.chit {
+  background: var(--chit);
+  border: 1px solid var(--line-soft);
+  border-radius: 4px 4px var(--r-sm) var(--r-sm);
+  box-shadow: var(--shadow);
+  font-family: var(--font-mono);
+  position: relative;
+}
+.chit::before { /* punched perforation holes */
+  content: ''; display: block; height: 10px;
+  background: radial-gradient(circle at 8px 0, var(--chit-hole) 4.5px, transparent 5px);
+  background-size: 17px 10px;
+  background-position: 4px -4px;
+}
+.chit::after { /* torn bottom */
+  content: ''; display: block; height: 8px;
+  background: linear-gradient(-45deg, transparent 5px, var(--chit) 0) 0 100%,
+              linear-gradient(45deg, transparent 5px, var(--chit) 0) 0 100%;
+  background-size: 12px 8px; background-repeat: repeat-x;
+  position: absolute; left: 0; right: 0; bottom: -8px;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 6px; border: 2px solid var(--bg); }
+::-webkit-scrollbar-track { background: transparent; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}

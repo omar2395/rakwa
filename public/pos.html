@@ -1,0 +1,559 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rakwa · POS</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='82' font-size='84'>☕</text></svg>">
+<link rel="stylesheet" href="/theme.css">
+<style>
+  .cashier { font-size: 12.5px; color: var(--muted); font-family: var(--font-mono); border-left: 1px solid var(--line); padding-left: 14px; }
+  .layout { display: grid; grid-template-columns: 1fr 392px; height: calc(100vh - 57px); }
+
+  /* ── Left: menu ── */
+  .menu-pane { display: flex; flex-direction: column; min-width: 0; }
+  .cats { display: flex; gap: 8px; padding: 16px 22px 6px; flex-wrap: wrap; }
+  .cat-tab {
+    padding: 9px 16px; border-radius: var(--r-md); border: 1px solid var(--line);
+    background: var(--surface); font-weight: 600; color: var(--muted);
+    display: flex; align-items: baseline; gap: 8px; transition: all .12s ease;
+  }
+  .cat-tab .ar { font-size: 12px; opacity: .7; }
+  .cat-tab.on { background: var(--copper); color: var(--copper-ink); border-color: transparent; }
+  .cat-tab:not(.on):hover { border-color: var(--copper); color: var(--text); }
+
+  .grid {
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(172px, 1fr));
+    gap: 12px; padding: 14px 22px; overflow-y: auto; flex: 1; align-content: start;
+  }
+  .item-card {
+    text-align: left; background: var(--surface); border: 1px solid var(--line-soft);
+    border-radius: var(--r-lg); padding: 15px 15px 13px; min-height: 120px;
+    display: flex; flex-direction: column; gap: 3px; position: relative;
+    transition: transform .1s ease, border-color .15s ease, box-shadow .15s ease;
+  }
+  .item-card:hover { border-color: var(--copper); transform: translateY(-2px); box-shadow: var(--shadow); }
+  .item-card:active { transform: scale(.97); }
+  .item-card .name { font-weight: 650; font-size: 15.5px; line-height: 1.25; padding-right: 12px; }
+  .item-card .ar { color: var(--muted); font-size: 13px; }
+  .item-card .price { margin-top: auto; font-family: var(--font-mono); font-size: 14px; color: var(--copper); font-weight: 600; }
+  .item-card .station-dot { position: absolute; top: 14px; right: 14px; width: 7px; height: 7px; border-radius: 50%; }
+  .st-espresso { background: var(--copper); } .st-grill { background: var(--flame); } .st-cold { background: var(--mint); }
+
+  /* Recently served strip */
+  .served-strip {
+    border-top: 1px solid var(--line-soft); padding: 11px 22px; display: flex; gap: 10px;
+    align-items: center; overflow-x: auto; white-space: nowrap; background: var(--surface);
+  }
+  .served-strip .lbl { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); font-weight: 700; flex-shrink: 0; }
+  .served-pill { font-family: var(--font-mono); font-size: 12.5px; color: var(--muted); border: 1px solid var(--line-soft); padding: 4px 11px; border-radius: 999px; flex-shrink: 0; }
+  .served-pill b { color: var(--mint); font-weight: 600; }
+
+  /* ── Right: order rail ── */
+  .rail { border-left: 1px solid var(--line-soft); background: var(--surface); display: flex; flex-direction: column; min-height: 0; }
+  .rail-head { padding: 16px 18px 0; }
+  .rail-head h2 { font-family: var(--font-display); font-size: 21px; font-weight: 560; }
+  .meta-row { display: flex; gap: 8px; margin-top: 12px; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: var(--r-md); overflow: hidden; }
+  .seg.grow { flex: 1; }
+  .seg button { flex: 1; padding: 8px 6px; font-size: 12.5px; font-weight: 600; color: var(--muted); white-space: nowrap; transition: background .12s; }
+  .seg button.on { background: var(--copper); color: var(--copper-ink); }
+  #orderTag { width: 120px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: 8px 10px; font-size: 13px; }
+  #orderTag::placeholder { color: var(--faint); }
+  .pay-label { font-size: 10.5px; letter-spacing: .13em; text-transform: uppercase; color: var(--faint); font-weight: 700; margin: 14px 0 7px; }
+
+  .ticket-wrap { margin: 12px 18px 0; flex: 1; overflow-y: auto; padding: 0 2px 10px; }
+  .chit { padding: 6px 0 14px; }
+  .chit-inner { padding: 8px 16px 0; }
+  .chit-head { display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px dashed var(--line); padding-bottom: 8px; margin-bottom: 6px; font-size: 12px; color: var(--muted); letter-spacing: .05em; }
+  .line { padding: 8px 0; border-bottom: 1px dotted var(--line-soft); }
+  .line-top { display: flex; gap: 8px; align-items: baseline; }
+  .line-top .qty { color: var(--copper); font-weight: 700; min-width: 24px; }
+  .line-top .nm { flex: 1; font-weight: 500; font-size: 14px; }
+  .line-top .amt { font-size: 13px; color: var(--muted); }
+  .line-top .rm { color: var(--faint); font-size: 15px; padding: 0 2px; line-height: 1; }
+  .line-top .rm:hover { color: var(--flame); }
+  .line .mods { font-size: 12px; color: var(--muted); padding-left: 32px; margin-top: 1px; }
+  .line .note { font-size: 12px; color: var(--amber); padding-left: 32px; font-style: italic; margin-top: 1px; }
+  .empty-ticket { text-align: center; color: var(--faint); padding: 42px 10px; font-size: 13.5px; font-family: var(--font-mono); }
+  .empty-ticket .cup { font-size: 32px; display: block; margin-bottom: 10px; opacity: .8; }
+
+  .totals { padding: 10px 16px 0; font-size: 13px; color: var(--muted); font-family: var(--font-mono); }
+  .totals .row { display: flex; justify-content: space-between; padding: 2px 0; }
+  .totals .grand { font-size: 18px; color: var(--text); font-weight: 700; border-top: 1px dashed var(--line); margin-top: 6px; padding-top: 8px; }
+
+  .rail-foot { padding: 12px 18px 18px; display: flex; flex-direction: column; gap: 9px; }
+  #fireBtn { width: 100%; padding: 15px; font-size: 16px; border-radius: var(--r-lg); font-weight: 700; }
+  #fireBtn .cnt { font-family: var(--font-mono); opacity: .75; font-weight: 600; }
+  .foot-links { display: flex; gap: 9px; }
+  .foot-links .btn { flex: 1; font-size: 13px; padding: 9px; }
+
+  /* ── Modifier dialog ── */
+  dialog { border: 1px solid var(--line); border-radius: var(--r-lg); background: var(--surface); color: var(--text); padding: 0; box-shadow: var(--shadow); }
+  dialog::backdrop { background: rgba(10, 7, 3, .62); backdrop-filter: blur(3px); }
+  #modModal { width: min(500px, 92vw); }
+  .dlg-head { padding: 20px 22px 6px; display: flex; justify-content: space-between; align-items: start; }
+  .dlg-head h3 { font-family: var(--font-display); font-size: 24px; font-weight: 560; }
+  .dlg-head .ar { color: var(--muted); font-size: 14px; }
+  .dlg-body { padding: 8px 22px 4px; max-height: 56vh; overflow-y: auto; }
+  .mod-group { margin-bottom: 16px; }
+  .g-lbl { font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--faint); font-weight: 700; margin-bottom: 8px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip small { opacity: .7; font-family: var(--font-mono); }
+  .note-in { width: 100%; margin-top: 8px; background: var(--surface-2); border: 1px solid var(--line); border-radius: var(--r-md); padding: 10px 12px; font-size: 13.5px; }
+  .dlg-foot { display: flex; gap: 10px; padding: 14px 22px 20px; align-items: center; border-top: 1px solid var(--line-soft); margin-top: 8px; }
+  .qty-step { display: flex; align-items: center; gap: 2px; border: 1px solid var(--line); border-radius: var(--r-md); }
+  .qty-step button { width: 40px; height: 44px; font-size: 19px; color: var(--muted); }
+  .qty-step button:hover { color: var(--copper); }
+  .qty-step span { min-width: 30px; text-align: center; font-family: var(--font-mono); font-weight: 600; }
+  #addToOrder { flex: 1; padding: 13px; font-size: 15px; }
+
+  /* ── Day report dialog ── */
+  #reportModal { width: min(860px, 94vw); max-height: 92vh; overflow-y: auto; }
+  .rep-head { padding: 22px 26px 4px; display: flex; justify-content: space-between; align-items: baseline; }
+  .rep-head h3 { font-family: var(--font-display); font-size: 26px; font-weight: 560; }
+  .rep-head .sub { color: var(--muted); font-size: 13px; font-family: var(--font-mono); }
+  .rep-body { padding: 14px 26px 24px; }
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px; }
+  .kpi { background: var(--surface-2); border: 1px solid var(--line-soft); border-radius: var(--r-md); padding: 13px 15px; }
+  .kpi .k { font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--faint); font-weight: 700; }
+  .kpi .v { font-family: var(--font-mono); font-size: 22px; font-weight: 600; margin-top: 5px; }
+  .kpi .v small { font-size: 12px; color: var(--muted); }
+  .kpi.hero .v { color: var(--copper); font-size: 25px; }
+
+  .rep-cols { display: grid; grid-template-columns: 1.15fr 1fr; gap: 24px; }
+  .panel h4 { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--faint); font-weight: 700; margin-bottom: 12px; }
+  .panel + .panel { margin-top: 22px; }
+
+  .hours { display: flex; align-items: flex-end; gap: 6px; height: 108px; padding-top: 6px; }
+  .hbar { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 6px; height: 100%; justify-content: flex-end; }
+  .hbar .fill { width: 100%; max-width: 26px; border-radius: 4px 4px 0 0; background: linear-gradient(var(--copper-hi), var(--copper)); min-height: 3px; transition: height .5s cubic-bezier(.2,.8,.2,1); }
+  .hbar .hl { font-size: 10px; color: var(--faint); font-family: var(--font-mono); }
+  .hbar:hover .fill { background: var(--copper-hi); }
+
+  .rank { display: flex; flex-direction: column; gap: 9px; }
+  .rank-row { display: grid; grid-template-columns: 22px 1fr auto; gap: 10px; align-items: center; font-size: 13.5px; }
+  .rank-row .n { font-family: var(--font-mono); color: var(--faint); font-size: 12px; }
+  .rank-row .bar-track { grid-column: 2 / -1; height: 5px; border-radius: 3px; background: var(--line-soft); overflow: hidden; }
+  .rank-row .bar-fill { height: 100%; border-radius: 3px; }
+  .rank-row .q { font-family: var(--font-mono); color: var(--muted); font-size: 12.5px; }
+
+  .split { display: flex; flex-direction: column; gap: 11px; }
+  .split-row { display: flex; align-items: center; gap: 11px; font-size: 13.5px; }
+  .split-row .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .split-row .lbl { width: 62px; }
+  .split-row .track { flex: 1; height: 8px; border-radius: 4px; background: var(--line-soft); overflow: hidden; }
+  .split-row .fill { height: 100%; border-radius: 4px; }
+  .split-row .amt { font-family: var(--font-mono); color: var(--muted); font-size: 12.5px; min-width: 92px; text-align: right; }
+
+  .cashiers { display: flex; flex-direction: column; gap: 8px; }
+  .cash-row { display: flex; justify-content: space-between; align-items: center; padding: 9px 12px; border: 1px solid var(--line-soft); border-radius: var(--r-md); background: var(--surface-2); font-size: 13.5px; }
+  .cash-row .who { display: flex; align-items: center; gap: 9px; font-weight: 600; }
+  .avatar { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 700; background: var(--copper); color: var(--copper-ink); }
+  .cash-row .amt { font-family: var(--font-mono); }
+  .cash-row .amt small { color: var(--faint); }
+
+  .voids { margin-top: 18px; border-top: 1px dashed var(--line); padding-top: 14px; }
+  .void-row { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--muted); padding: 5px 0; }
+  .void-row b { font-family: var(--font-mono); color: var(--flame); }
+  .rep-foot { display: flex; justify-content: space-between; align-items: center; padding: 14px 26px 22px; border-top: 1px solid var(--line-soft); }
+  .rep-foot .note { font-size: 11.5px; color: var(--faint); }
+
+  /* Toast */
+  #toast {
+    position: fixed; bottom: 26px; left: 50%; transform: translateX(-50%) translateY(20px);
+    background: var(--surface-2); border: 1px solid var(--copper); color: var(--text);
+    padding: 12px 22px; border-radius: var(--r-lg); font-weight: 600; opacity: 0;
+    transition: all .25s ease; pointer-events: none; z-index: 90; box-shadow: var(--shadow);
+    font-family: var(--font-mono); font-size: 14px;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #toast b { color: var(--copper); }
+
+  @media (max-width: 900px) {
+    .layout { grid-template-columns: 1fr; grid-template-rows: 1fr auto; height: auto; }
+    .rail { border-left: none; border-top: 1px solid var(--line-soft); }
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .rep-cols { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">Rak<em>wa</em></span>
+      <span class="ar">رَكوة</span>
+      <span class="screen-tag">POS · Counter 1</span>
+    </div>
+    <div class="spacer"></div>
+    <span class="live-dot off" id="liveDot">Kitchen link</span>
+    <span class="cashier" id="cashierTag">— </span>
+    <span class="clock" id="clock"></span>
+    <button class="btn ghost" id="reportBtn">Day report</button>
+    <a class="btn ghost" href="/kds" target="_blank" style="text-decoration:none">Kitchen ↗</a>
+    <button class="icon-btn" id="themeToggle" aria-label="Toggle theme">☾</button>
+  </header>
+
+  <main class="layout">
+    <section class="menu-pane">
+      <nav class="cats" id="cats" aria-label="Menu categories"></nav>
+      <div class="grid" id="grid"></div>
+      <div class="served-strip" id="servedStrip"><span class="lbl">Served today</span></div>
+    </section>
+
+    <aside class="rail" aria-label="Current order">
+      <div class="rail-head">
+        <h2>Current order</h2>
+        <div class="meta-row">
+          <div class="seg grow" id="typeSeg" role="group" aria-label="Order type">
+            <button data-type="dine-in" class="on">Dine-in</button>
+            <button data-type="takeaway">Takeaway</button>
+            <button data-type="delivery">Delivery</button>
+          </div>
+          <input id="orderTag" placeholder="Table / name" maxlength="24">
+        </div>
+        <div class="pay-label">Payment · طريقة الدفع</div>
+        <div class="seg" id="paySeg" role="group" aria-label="Payment method"></div>
+      </div>
+
+      <div class="ticket-wrap">
+        <div class="chit">
+          <div class="chit-inner">
+            <div class="chit-head"><span>RAKWA · COUNTER 1</span><span id="chitClock"></span></div>
+            <div id="ticketLines"></div>
+          </div>
+          <div class="totals" id="totals"></div>
+        </div>
+      </div>
+
+      <div class="rail-foot">
+        <button class="btn primary" id="fireBtn" disabled>Fire to kitchen <span class="cnt" id="fireCnt"></span></button>
+        <div class="foot-links">
+          <button class="btn ghost" id="printBtn" disabled>Print invoice</button>
+          <button class="btn ghost" id="clearBtn" disabled>Clear</button>
+        </div>
+      </div>
+    </aside>
+  </main>
+
+  <dialog id="modModal">
+    <div class="dlg-head">
+      <div><h3 id="dlgName"></h3><span class="ar" id="dlgAr"></span></div>
+      <button class="icon-btn" id="dlgClose" aria-label="Close">✕</button>
+    </div>
+    <div class="dlg-body" id="dlgBody"></div>
+    <div class="dlg-foot">
+      <div class="qty-step">
+        <button type="button" id="qtyDown" aria-label="Less">−</button>
+        <span id="qtyVal">1</span>
+        <button type="button" id="qtyUp" aria-label="More">+</button>
+      </div>
+      <button type="button" class="btn primary" id="addToOrder">Add — 0 SR</button>
+    </div>
+  </dialog>
+
+  <dialog id="reportModal">
+    <div class="rep-head">
+      <div><h3>Day report</h3><span class="sub" id="repDate"></span></div>
+      <button class="icon-btn" id="repClose" aria-label="Close">✕</button>
+    </div>
+    <div class="rep-body" id="repBody">
+      <div class="empty-ticket"><span class="cup">☕</span>Loading today’s trade…</div>
+    </div>
+    <div class="rep-foot">
+      <span class="note">تقرير مبيعات اليوم — auto-generated from every closed ticket</span>
+      <div style="display:flex;gap:9px">
+        <button class="btn ghost" id="repExport">Export CSV</button>
+        <button class="btn primary" id="repClose2">Close shift</button>
+      </div>
+    </div>
+  </dialog>
+
+  <div id="toast" role="status"></div>
+
+<script type="module">
+import { SAR, esc, initTheme, initClock, connectStream, api } from '/shared.js';
+initTheme('dark'); initClock();
+
+const $ = (s) => document.querySelector(s);
+const STATION_COLOR = { espresso: 'var(--copper)', grill: 'var(--flame)', cold: 'var(--mint)' };
+const PAY_COLOR = { cash: 'var(--mint)', card: 'var(--copper)', wallet: 'var(--blue)' };
+
+let MENU = [], CATS = [], MODG = {}, NOTES = [], PAYMENTS = [], VAT = 0.15, CASHIER = '';
+let activeCat = 'espresso';
+let cart = [];              // { menuId, name, qty, mods[], note, unit_price }
+let orderType = 'dine-in';
+let payment = 'cash';
+let current = null;        // item being configured
+
+const menu = await api.get('/api/menu');
+MENU = menu.menu; CATS = menu.categories; MODG = menu.modGroups; NOTES = menu.quickNotes;
+PAYMENTS = menu.payments; VAT = menu.vat; CASHIER = menu.cashier;
+payment = PAYMENTS[0].id;
+$('#cashierTag').textContent = `${CASHIER} · cashier`;
+
+// Categories + payment segment
+$('#cats').innerHTML = CATS.map((c) =>
+  `<button class="cat-tab ${c.id === activeCat ? 'on' : ''}" data-cat="${c.id}">${c.name}<span class="ar">${c.ar}</span></button>`).join('');
+$('#paySeg').innerHTML = PAYMENTS.map((p, i) =>
+  `<button data-pay="${p.id}" class="${i === 0 ? 'on' : ''}">${p.label} <span style="opacity:.6">${p.ar}</span></button>`).join('');
+
+$('#cats').onclick = (e) => {
+  const b = e.target.closest('[data-cat]'); if (!b) return;
+  activeCat = b.dataset.cat;
+  document.querySelectorAll('.cat-tab').forEach((t) => t.classList.toggle('on', t.dataset.cat === activeCat));
+  renderGrid();
+};
+$('#paySeg').onclick = (e) => {
+  const b = e.target.closest('[data-pay]'); if (!b) return;
+  payment = b.dataset.pay;
+  $('#paySeg').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+};
+$('#typeSeg').onclick = (e) => {
+  const b = e.target.closest('[data-type]'); if (!b) return;
+  orderType = b.dataset.type;
+  $('#typeSeg').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
+};
+
+function renderGrid() {
+  $('#grid').innerHTML = MENU.filter((m) => m.cat === activeCat).map((m) => `
+    <button class="item-card" data-id="${m.id}">
+      <span class="station-dot st-${m.station}"></span>
+      <span class="name">${esc(m.name)}</span>
+      <span class="ar">${esc(m.ar)}</span>
+      <span class="price">${SAR(m.price)}</span>
+    </button>`).join('');
+}
+renderGrid();
+
+// ── Modifier dialog ──
+$('#grid').onclick = (e) => {
+  const card = e.target.closest('[data-id]'); if (!card) return;
+  openModifiers(MENU.find((m) => m.id === card.dataset.id));
+};
+$('#dlgClose').onclick = () => $('#modModal').close();
+
+function openModifiers(item) {
+  current = { item, qty: 1, picks: {}, extras: new Set(), note: '' };
+  for (const g of item.mods) {
+    const grp = MODG[g];
+    if (grp.type === 'single') current.picks[g] = (grp.options.find((o) => o.default) || grp.options[0]).id;
+  }
+  $('#dlgName').textContent = item.name;
+  $('#dlgAr').textContent = item.ar;
+  $('#qtyVal').textContent = '1';
+  $('#dlgBody').innerHTML = item.mods.map((g) => {
+    const grp = MODG[g];
+    return `<div class="mod-group" data-group="${g}">
+      <div class="g-lbl">${grp.label}</div>
+      <div class="chips">${grp.options.map((o) =>
+        `<button type="button" class="chip ${current.picks[g] === o.id ? 'on' : ''}" data-opt="${o.id}">
+          ${o.label}${o.delta ? ` <small>${o.delta > 0 ? '+' : ''}${o.delta}</small>` : ''}</button>`).join('')}
+      </div></div>`;
+  }).join('') + `
+    <div class="mod-group" data-group="__notes">
+      <div class="g-lbl">Kitchen note · ملاحظة للمطبخ</div>
+      <div class="chips">${NOTES.map((n) => `<button type="button" class="chip" data-note="${esc(n)}">${esc(n)}</button>`).join('')}</div>
+      <input class="note-in" id="freeNote" placeholder="Or type a note for the kitchen…" maxlength="120">
+    </div>`;
+  priceDlg();
+  $('#modModal').showModal();
+}
+
+$('#dlgBody').onclick = (e) => {
+  const opt = e.target.closest('[data-opt]');
+  if (opt) {
+    const g = opt.closest('[data-group]').dataset.group;
+    if (MODG[g].type === 'single') {
+      current.picks[g] = opt.dataset.opt;
+      opt.parentElement.querySelectorAll('.chip').forEach((c) => c.classList.toggle('on', c === opt));
+    } else {
+      const id = opt.dataset.opt;
+      current.extras.has(id) ? current.extras.delete(id) : current.extras.add(id);
+      opt.classList.toggle('on');
+    }
+    priceDlg();
+  }
+  const noteChip = e.target.closest('[data-note]');
+  if (noteChip) {
+    noteChip.classList.toggle('on');
+    current.note = [...$('#dlgBody').querySelectorAll('[data-note].on')].map((c) => c.dataset.note).join(', ');
+    $('#freeNote').value = current.note;
+  }
+};
+$('#dlgBody').oninput = (e) => { if (e.target.id === 'freeNote') current.note = e.target.value; };
+$('#qtyUp').onclick = () => { current.qty = Math.min(20, current.qty + 1); $('#qtyVal').textContent = current.qty; priceDlg(); };
+$('#qtyDown').onclick = () => { current.qty = Math.max(1, current.qty - 1); $('#qtyVal').textContent = current.qty; priceDlg(); };
+
+function configured() {
+  const { item, picks, extras } = current;
+  let unit = item.price; const mods = []; let size = '';
+  for (const g of item.mods) {
+    const grp = MODG[g];
+    if (grp.type === 'single') {
+      const o = grp.options.find((x) => x.id === picks[g]);
+      unit += o.delta;
+      if (g === 'size') size = o.label;
+      if (!o.default || g === 'shots' || g === 'sugar') mods.push(o.label);
+    } else {
+      for (const id of extras) { const o = grp.options.find((x) => x.id === id); if (o) { unit += o.delta; mods.push(o.label); } }
+    }
+  }
+  return { unit, mods, size };
+}
+function priceDlg() { $('#addToOrder').textContent = `Add — ${SAR(configured().unit * current.qty)}`; }
+
+$('#addToOrder').onclick = () => {
+  const { unit, mods, size } = configured();
+  cart.push({ menuId: current.item.id, name: current.item.name, qty: current.qty, mods, size, note: current.note.trim(), unit_price: unit });
+  $('#modModal').close();
+  renderTicket();
+};
+
+// ── Ticket rail ──
+const chitClock = () => { $('#chitClock').textContent = new Date().toLocaleDateString('en-GB') + ' ' + new Date().toTimeString().slice(0, 5); };
+chitClock(); setInterval(chitClock, 30_000);
+
+function renderTicket() {
+  const has = cart.length > 0;
+  $('#fireBtn').disabled = !has; $('#printBtn').disabled = !has; $('#clearBtn').disabled = !has;
+  $('#fireCnt').textContent = has ? `${cart.reduce((s, l) => s + l.qty, 0)} items` : '';
+  if (!has) {
+    $('#ticketLines').innerHTML = `<div class="empty-ticket"><span class="cup">☕</span>No items yet.<br>Tap the menu to start the ticket.</div>`;
+    $('#totals').innerHTML = '';
+    return;
+  }
+  $('#ticketLines').innerHTML = cart.map((l, i) => `
+    <div class="line">
+      <div class="line-top">
+        <span class="qty">${l.qty}×</span><span class="nm">${esc(l.name)}${l.size ? ` <span style="color:var(--muted);font-size:12px">${esc(l.size)}</span>` : ''}</span>
+        <span class="amt">${SAR(l.unit_price * l.qty)}</span>
+        <button class="rm" data-rm="${i}" aria-label="Remove line">✕</button>
+      </div>
+      ${l.mods.length ? `<div class="mods">${esc(l.mods.join(' · '))}</div>` : ''}
+      ${l.note ? `<div class="note">✎ ${esc(l.note)}</div>` : ''}
+    </div>`).join('');
+  const sub = cart.reduce((s, l) => s + l.unit_price * l.qty, 0);
+  const vat = sub * VAT;
+  $('#totals').innerHTML = `
+    <div class="row"><span>Subtotal</span><span>${SAR(sub)}</span></div>
+    <div class="row"><span>VAT ${(VAT * 100).toFixed(0)}%</span><span>${SAR(vat)}</span></div>
+    <div class="row grand"><span>Total</span><span>${SAR(sub + vat)}</span></div>`;
+}
+$('#ticketLines').onclick = (e) => {
+  const rm = e.target.closest('[data-rm]'); if (!rm) return;
+  cart.splice(+rm.dataset.rm, 1); renderTicket();
+};
+$('#clearBtn').onclick = () => { cart = []; renderTicket(); };
+$('#printBtn').onclick = () => toast('Invoice sent to the receipt printer 🧾');
+renderTicket();
+
+// ── Fire to kitchen ──
+$('#fireBtn').onclick = async () => {
+  $('#fireBtn').disabled = true;
+  try {
+    const { order } = await api.post('/api/orders', { type: orderType, tag: $('#orderTag').value.trim(), payment, cashier: CASHIER, items: cart });
+    toast(`Ticket <b>#${order.number}</b> fired to the kitchen`);
+    cart = []; $('#orderTag').value = ''; renderTicket();
+  } catch (err) {
+    toast(`Could not fire — ${esc(err.message)}`);
+    $('#fireBtn').disabled = false;
+  }
+};
+
+let toastTimer;
+function toast(html) {
+  const t = $('#toast'); t.innerHTML = html; t.classList.add('show');
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => t.classList.remove('show'), 2800);
+}
+
+// ── Served-today strip + live link ──
+const servedPill = (h) => {
+  const names = (h.items || []).map((i) => `${i.qty > 1 ? i.qty + '×' : ''}${i.name}`).join(', ');
+  const mins = h.served_at && h.created_at ? ((h.served_at - h.created_at) / 60000).toFixed(1) : h.servedInMin;
+  return `<span class="served-pill">#${h.number} · ${esc(names.slice(0, 40))} · <b>${mins}m</b></span>`;
+};
+const boot = await api.get('/api/orders');
+$('#servedStrip').insertAdjacentHTML('beforeend', boot.recent.map(servedPill).join(''));
+
+connectStream({
+  'order:bump': (d) => {
+    $('#servedStrip .lbl').insertAdjacentHTML('afterend',
+      `<span class="served-pill">#${d.number} · <b>${d.servedInMin}m</b></span>`);
+    toast(`Kitchen served <b>#${d.number}</b> — ${d.servedInMin} min`);
+  },
+}, (ok) => {
+  const dot = $('#liveDot');
+  dot.classList.toggle('off', !ok);
+  dot.textContent = ok ? 'Kitchen live' : 'Reconnecting…';
+});
+
+// ── Day report ──
+$('#reportBtn').onclick = openReport;
+$('#repClose').onclick = $('#repClose2').onclick = () => $('#reportModal').close();
+$('#repExport').onclick = () => toast('Report exported to CSV 📄');
+
+async function openReport() {
+  $('#reportModal').showModal();
+  $('#repBody').innerHTML = `<div class="empty-ticket"><span class="cup">☕</span>Loading today’s trade…</div>`;
+  const r = await api.get('/api/report');
+  $('#repDate').textContent = `${r.date} · Counter 1`;
+  const maxHour = Math.max(1, ...r.hours.map((h) => h.amt));
+  const maxTop = Math.max(1, ...r.top.map((t) => t.qty));
+  const maxPay = Math.max(1, ...r.byPayment.map((p) => p.amt));
+  const initial = (n) => n.slice(0, 1).toUpperCase();
+  $('#repBody').innerHTML = `
+    <div class="kpis">
+      <div class="kpi hero"><div class="k">Gross sales</div><div class="v">${r.gross.toLocaleString()}<small> SR</small></div></div>
+      <div class="kpi"><div class="k">Orders</div><div class="v">${r.orders}</div></div>
+      <div class="kpi"><div class="k">Avg ticket</div><div class="v">${r.avgTicket}<small> SR</small></div></div>
+      <div class="kpi"><div class="k">Avg serve</div><div class="v">${r.avgServeMin}<small> min</small></div></div>
+    </div>
+    <div class="rep-cols">
+      <div>
+        <div class="panel">
+          <h4>Sales by hour</h4>
+          <div class="hours">${r.hours.map((h) => `
+            <div class="hbar" title="${h.orders} orders · ${h.amt} SR">
+              <div class="fill" style="height:${Math.max(3, (h.amt / maxHour) * 100)}%"></div>
+              <div class="hl">${String(h.hour).padStart(2, '0')}</div>
+            </div>`).join('')}</div>
+        </div>
+        <div class="panel">
+          <h4>Payment mix · حسب طريقة الدفع</h4>
+          <div class="split">${r.byPayment.map((p) => `
+            <div class="split-row">
+              <span class="dot" style="background:${PAY_COLOR[p.payment] || 'var(--copper)'}"></span>
+              <span class="lbl">${p.payment}</span>
+              <span class="track"><span class="fill" style="width:${(p.amt / maxPay) * 100}%;background:${PAY_COLOR[p.payment] || 'var(--copper)'}"></span></span>
+              <span class="amt">${p.amt.toLocaleString()} SR · ${p.n}</span>
+            </div>`).join('')}</div>
+        </div>
+      </div>
+      <div>
+        <div class="panel">
+          <h4>Top sellers · الأكثر مبيعًا</h4>
+          <div class="rank">${r.top.map((t, i) => `
+            <div class="rank-row">
+              <span class="n">${i + 1}</span><span>${esc(t.name)}</span><span class="q">${t.qty} sold</span>
+              <span class="bar-track"><span class="bar-fill" style="width:${(t.qty / maxTop) * 100}%;background:${STATION_COLOR[t.station] || 'var(--copper)'}"></span></span>
+            </div>`).join('')}</div>
+        </div>
+        <div class="panel">
+          <h4>Sales by employee · حسب الموظف</h4>
+          <div class="cashiers">${r.byCashier.map((c) => `
+            <div class="cash-row">
+              <span class="who"><span class="avatar">${initial(c.cashier)}</span>${esc(c.cashier)}</span>
+              <span class="amt">${c.amt.toLocaleString()} SR <small>· ${c.n}</small></span>
+            </div>`).join('')}</div>
+        </div>
+      </div>
+    </div>
+    <div class="voids">
+      <h4 style="color:var(--faint);font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px">Cancelled / returned · ${r.voids.count} tickets · ${r.voids.value} SR</h4>
+      ${r.voids.list.map((v) => `<div class="void-row"><span><b>#${v.number}</b> · ${esc(v.reason)} · ${esc(v.cashier)}</span><span>−${v.total} SR</span></div>`).join('') || '<div class="void-row">None today</div>'}
+    </div>`;
+}
+</script>
+</body>
+</html>

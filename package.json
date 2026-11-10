@@ -1,0 +1,16 @@
+{
+  "name": "rakwa-pos-kds",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Rakwa \u2014 coffee-shop POS + real-time Kitchen Display System with an AI expeditor",
+  "scripts": {
+    "start": "node server.js",
+    "e2e": "node tests/e2e.mjs"
+  },
+  "engines": {
+    "node": ">=22.5"
+  },
+  "devDependencies": {
+    "playwright-core": "1.61.1"
+  }
+}
